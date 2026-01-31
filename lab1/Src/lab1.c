@@ -14,9 +14,18 @@ int main(void)
   /* Configure the system clock */
   SystemClock_Config();
 
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+
+  GPIO_InitTypeDef initStr = {GPIO_PIN_8 | GPIO_PIN_9, 
+                              GPIO_MODE_OUTPUT_PP,
+                              GPIO_SPEED_FREQ_LOW,
+                              GPIO_NOPULL,};
+  HAL_GPIO_Init(GPIOC, &initStr);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
   while (1)
   {
- 
+    HAL_Delay(200);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_8);
   }
   return -1;
 }
