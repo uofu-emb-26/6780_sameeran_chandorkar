@@ -36,6 +36,50 @@
       "windows": {
         "command": "cube"
       }
+    },
+    {
+      "label": "1. Configure (cmake -B)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-B",
+        "build",
+        "-S",
+        "./"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "2. Build All",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "build",
+        "--target",
+        "all"
+      ],
+      "group": "build",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "3. Flash Lab 1",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "build",
+        "--target",
+        "flash_lab1"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$gcc",
+      "presentation": {
+        "focus": true
+      }
     }
   ]
 }

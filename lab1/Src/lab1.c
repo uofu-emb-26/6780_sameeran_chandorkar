@@ -1,6 +1,10 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
-
+//PA0 is user input/button,
+//PC6 - RED LED
+//PC7 - BLUE LED
+//PC8 - ORANGE LED
+//PC9 - GREEN LED
 void SystemClock_Config(void);
 
 /**
@@ -22,10 +26,12 @@ int main(void)
                               GPIO_NOPULL,};
   HAL_GPIO_Init(GPIOC, &initStr);
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
   while (1)
   {
     HAL_Delay(200);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_8);
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_9);
   }
   return -1;
 }
