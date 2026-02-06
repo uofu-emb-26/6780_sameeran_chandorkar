@@ -1,5 +1,6 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
+#include "assert.h"
 //PA0 is user input/button,
 //PC6 - RED LED
 //PC7 - BLUE LED
@@ -20,13 +21,20 @@ int main(void)
 
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
-  GPIO_InitTypeDef initStr = {GPIO_PIN_8 | GPIO_PIN_9, 
+  GPIO_InitTypeDef initStr = {
+    GPIO_PIN_8 | GPIO_PIN_9, 
                               GPIO_MODE_OUTPUT_PP,
                               GPIO_SPEED_FREQ_LOW,
-                              GPIO_NOPULL,};
+                              GPIO_NOPULL
+                            };
   HAL_GPIO_Init(GPIOC, &initStr);
+
+  //set PC8, reset PC9, check if it is set/reset, then toggle them every 200ms
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
+  assert(GPIOC->ODR & (1 << 8));
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
+  assert(!(GPIOC->ODR & (1 << 9)));
+  
   while (1)
   {
     HAL_Delay(200);
