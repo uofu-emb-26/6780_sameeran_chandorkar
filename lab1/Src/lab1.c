@@ -26,7 +26,7 @@ int main(void)
   
   HAL_RCC_GPIOC_CLK_Enable();
 
-  GPIO_InitTypeDef initStr = {GPIO_PIN_6 | GPIO_PIN_7, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW,GPIO_NOPULL};
+  GPIO_InitTypeDef initStr = {GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW,GPIO_NOPULL};
   GPIO_InitTypeDef initBtn = {GPIO_PIN_0, GPIO_MODE_INPUT, GPIO_SPEED_FREQ_LOW, GPIO_PULLDOWN};
 
   My_HAL_GPIO_Init(GPIOC, &initStr);
@@ -34,14 +34,21 @@ int main(void)
   
   My_HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);
   My_HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);
+  My_HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_RESET);
+  GPIO_PinState buttonCurrentState = GPIO_PIN_RESET;
+  GPIO_PinState buttonLastState = GPIO_PIN_RESET;
 
   while (1)
   {
-    if (My_HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET){
-      HAL_Delay(100);
-      if (My_HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET){
-        My_HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6 | GPIO_PIN_7);
-      }
+    buttonCurrentState = My_HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+    if ((buttonCurrentState == GPIO_PIN_SET && buttonLastState == GPIO_PIN_RESET)/* || (buttonCurrentState == GPIO_PIN_RESET && buttonLastState == GPIO_PIN_SET)*/)
+    {
+      My_HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6 | GPIO_PIN_7);
+      buttonLastState = buttonCurrentState;
+    }
+    else
+    {
+      buttonLastState = buttonCurrentState;
     }
   }
   return -1;
