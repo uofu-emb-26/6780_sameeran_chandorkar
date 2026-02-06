@@ -1,12 +1,15 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
+#include "stm32f072xb.h"
 #include "assert.h"
+#include "hal_gpio.h"
 //PA0 is user input/button,
 //PC6 - RED LED
 //PC7 - BLUE LED
 //PC8 - ORANGE LED
 //PC9 - GREEN LED
 void SystemClock_Config(void);
+void HAL_RCC_GPIOC_CLK_Enable(void);
 
 /**
   * @brief  The application entry point.
@@ -16,30 +19,30 @@ int main(void)
 {
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
   /* Configure the system clock */
   SystemClock_Config();
 
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-
-  GPIO_InitTypeDef initStr = {
-    GPIO_PIN_8 | GPIO_PIN_9, 
-                              GPIO_MODE_OUTPUT_PP,
-                              GPIO_SPEED_FREQ_LOW,
-                              GPIO_NOPULL
-                            };
-  HAL_GPIO_Init(GPIOC, &initStr);
-
-  //set PC8, reset PC9, check if it is set/reset, then toggle them every 200ms
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, GPIO_PIN_SET);
-  assert(GPIOC->ODR & (1 << 8));
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
-  assert(!(GPIOC->ODR & (1 << 9)));
   
+  HAL_RCC_GPIOC_CLK_Enable();
+
+  GPIO_InitTypeDef initStr = {GPIO_PIN_6 | GPIO_PIN_7, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW,GPIO_NOPULL};
+  GPIO_InitTypeDef initBtn = {GPIO_PIN_0, GPIO_MODE_INPUT, GPIO_SPEED_FREQ_LOW, GPIO_PULLDOWN};
+
+  My_HAL_GPIO_Init(GPIOC, &initStr);
+  My_HAL_GPIO_Init(GPIOA, &initBtn);
+  
+  My_HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_SET);
+  My_HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);
+
   while (1)
   {
-    HAL_Delay(200);
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_8);
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_9);
+    if (My_HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET){
+      HAL_Delay(100);
+      if (My_HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET){
+        My_HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6 | GPIO_PIN_7);
+      }
+    }
   }
   return -1;
 }
@@ -91,6 +94,15 @@ void Error_Handler(void)
   {
   }
 }
+
+void HAL_RCC_GPIOC_CLK_Enable(void)
+{
+    // Enable CLK for GPIOC
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+    // Enable CLK for GPIOA
+    RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+    RCC->APB2ENR |=RCC_APB2ENR_SYSCFGCOMPEN;
+};
 
 #ifdef USE_FULL_ASSERT
 /**
