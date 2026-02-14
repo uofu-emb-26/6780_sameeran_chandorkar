@@ -1,52 +1,44 @@
-#include "main.h"
-#include "stm32f0xx_hal.h"
 #include "stm32f0xx_it.h"
 #include "hal_gpio.h"
+#include "main.h"
+#include "stm32f0xx_hal.h"
 
 /******************************************************************************/
 /*           Cortex-M0 Processor Interruption and Exception Handlers          */
 /******************************************************************************/
 /**
-  * @brief This function handles Non maskable interrupt.
-  */
-void NMI_Handler(void)
-{
-   while (1)
-  {
+ * @brief This function handles Non maskable interrupt.
+ */
+void NMI_Handler(void) {
+  while (1) {
   }
 }
 
 /**
-  * @brief This function handles Hard fault interrupt.
-  */
-void HardFault_Handler(void)
-{
-  while (1)
-  {
+ * @brief This function handles Hard fault interrupt.
+ */
+void HardFault_Handler(void) {
+  while (1) {
   }
 }
 
 /**
-  * @brief This function handles System service call via SWI instruction.
-  */
-void SVC_Handler(void)
-{
-}
+ * @brief This function handles System service call via SWI instruction.
+ */
+void SVC_Handler(void) {}
 
 /**
-  * @brief This function handles Pendable request for system service.
-  */
-void PendSV_Handler(void)
-{
-}
+ * @brief This function handles Pendable request for system service.
+ */
+void PendSV_Handler(void) {}
 
 /**
-  * @brief This function handles System tick timer.
-  */
-void SysTick_Handler(void)
-{
+ * @brief This function handles System tick timer.
+ */
+void SysTick_Handler(void) {
+
   HAL_IncTick();
-  #if 0
+#if 0
   static uint32_t counter = 0;
   counter++;
   if (counter >= 200)
@@ -54,7 +46,16 @@ void SysTick_Handler(void)
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_7);
     counter = 0;
   }
-  #endif
+#endif
+
+#if (CHECKOFF2 == 1)
+  static uint32_t counter = 0;
+  counter++;
+  if (counter >= 200) {
+    counter = 0;
+    BSP_GPIO_TogglePin(GPIOC, LED_BLUE);
+  }
+#endif
 }
 
 /******************************************************************************/

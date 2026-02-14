@@ -5,6 +5,12 @@
 #include <stm32f0xx_hal.h>
 #include <stm32f0xx_hal_gpio.h>
 
+#define LED_RED 6    // PC6
+#define LED_BLUE 7   // PC7
+#define LED_ORANGE 8 // PC8
+#define LED_GREEN 9  // PC9
+#define BUTTON 0     // PA0
+
 /* Function Prototypes */
 void BSP_GPIO_Init(GPIO_TypeDef *port, uint32_t pin, uint32_t mode,
                    uint32_t speed, uint32_t pull);

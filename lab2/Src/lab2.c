@@ -2,12 +2,6 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
 
-#define LED_RED 6    // PC6
-#define LED_BLUE 7   // PC7
-#define LED_ORANGE 8 // PC8
-#define LED_GREEN 9  // PC9
-#define BUTTON 0     // PA0
-
 void SystemClock_Config(void);
 void init_LEDs(void);
 void init_button_interrupt(void);
@@ -25,6 +19,13 @@ int main(void) {
 
   init_LEDs();
   init_button_interrupt();
+// checkoff 2
+#if (CHECKOFF2 == 1)
+  NVIC_SetPriority(SysTick_IRQn, 2);
+#if (CHECKOFF2_PRIO_CHANGE == 1)
+  BSP_EXTI_EnableIRQ(BUTTON, 3); // Lowest priority
+#endif
+#endif
 
   while (1) {
     BSP_GPIO_TogglePin(GPIOC, LED_RED);
@@ -61,13 +62,22 @@ void init_button_interrupt(void) {
 }
 
 void EXTI0_1_IRQHandler(void) {
-  // Check if line 0 triggered
   if (EXTI->PR & (1 << BUTTON)) {
-    // Toggle green and orange LEDs
+    // Toggle LEDs before delay
     BSP_GPIO_TogglePin(GPIOC, LED_GREEN);
     BSP_GPIO_TogglePin(GPIOC, LED_ORANGE);
 
-    // Clear pending flag - REQUIRED!
+// checkoff 2 enabled
+#if (CHECKOFF2 == 1)
+    // Long delay (~1-2 seconds)
+    for (volatile uint32_t i = 0; i < 1500000; i++)
+      ;
+
+    // Toggle LEDs after delay
+    BSP_GPIO_TogglePin(GPIOC, LED_GREEN);
+    BSP_GPIO_TogglePin(GPIOC, LED_ORANGE);
+#endif // checkoff 2
+
     BSP_EXTI_ClearFlag(BUTTON);
   }
 }
