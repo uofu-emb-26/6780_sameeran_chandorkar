@@ -89,7 +89,7 @@
         "--build",
         "build",
         "--target",
-        "flash_lab1"
+        "flash_lab2"
       ],
       "group": {
         "kind": "build",

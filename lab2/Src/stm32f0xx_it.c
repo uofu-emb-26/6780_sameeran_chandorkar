@@ -1,6 +1,7 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx_it.h"
+#include "hal_gpio.h"
 
 /******************************************************************************/
 /*           Cortex-M0 Processor Interruption and Exception Handlers          */
@@ -45,6 +46,15 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   HAL_IncTick();
+  #if 0
+  static uint32_t counter = 0;
+  counter++;
+  if (counter >= 200)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_7);
+    counter = 0;
+  }
+  #endif
 }
 
 /******************************************************************************/
@@ -53,4 +63,3 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f0xx.s).                    */
 /******************************************************************************/
-
