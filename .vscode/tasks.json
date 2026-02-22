@@ -93,6 +93,25 @@
       ],
       "group": {
         "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": "$gcc",
+      "presentation": {
+        "focus": true
+      }
+    },
+    {
+      "label": "4. Flash Lab 3",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "build",
+        "--target",
+        "flash_lab3"
+      ],
+      "group": {
+        "kind": "build",
         "isDefault": true
       },
       "problemMatcher": "$gcc",
