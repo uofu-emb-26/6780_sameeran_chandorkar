@@ -1,17 +1,26 @@
+/***************************************** includes */
 #include "hal_gpio.h"
 #include "main.h"
 #include "stm32f0xx_hal.h"
+#include <stdint.h>
 
-#define LED_RED_PIN 6    // PC6
-#define LED_BLUE_PIN 7   // PC7
-#define LED_ORANGE_PIN 8 // PC8
-#define LED_GREEN_PIN 9  // PC9
+/***************************************** MACROs */
+#define LED_RED_PIN 6U    // PC6
+#define LED_BLUE_PIN 7U   // PC7
+#define LED_ORANGE_PIN 8U // PC8
+#define LED_GREEN_PIN 9U  // PC9
 
-#define USART3_TX_PIN 10
-#define USART3_RX_PIN 11
+#define USART3_TX_PIN 10U
+#define USART3_RX_PIN 11U
 #define USART3_PORT GPIOC
-#define USART3_AF 1 // Alternate Function 1 for USART3
+#define USART3_AF 1U // Alternate Function 1 for USART3
 
+#define CHECKOFF1 0
+#if defined(CHECKOFF1) && CHECKOFF1 == 0
+#define CHECKOFF2 1
+#endif
+
+/***************************************** function declarations */
 void SystemClock_Config(void);
 void init_leds(void);
 void USART3_Init(void);
@@ -21,7 +30,21 @@ char USART3_ReceiveChar(void);
 uint32_t GetLedPin(char color);
 void PrintMenu(void);
 void ProcessCommand(char c);
+static void flash_leds(uint32_t led_pin);
 
+void ProcessCommandonIRQ();
+static void ActOnIRQCommand(char color_cmd, char action_cmd);
+
+/***************************************** global variables */
+
+volatile uint8_t rx_data = 0;
+volatile uint8_t rx_flag = 0;
+uint8_t state = 0; // 0 = waiting for color, 1 = waiting for action
+char color_cmd = 0;
+
+typedef enum { false, true } bool;
+
+/***************************************** start of file */
 /**
  * @brief  The application entry point.
  * @retval int
@@ -35,11 +58,16 @@ int main(void) {
   init_leds();
   USART3_Init();
 
+  flash_leds(LED_RED_PIN);
   PrintMenu();
+  flash_leds(LED_GREEN_PIN);
 
   while (1) {
-    char c = USART3_ReceiveChar();
-    ProcessCommand(c);
+#if defined(CHECKOFF1) && CHECKOFF1 == 1
+    ProcessCommand(USART3_ReceiveChar());
+#else
+    ProcessCommandonIRQ();
+#endif
   }
   return 0;
 }
@@ -55,6 +83,12 @@ void init_leds(void) {
             GPIO_NOPULL);
   GPIO_Init(GPIOC, LED_GREEN_PIN, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW,
             GPIO_NOPULL);
+}
+
+void flash_leds(uint32_t led_pin) {
+  GPIO_TogglePin(GPIOC, led_pin);
+  HAL_Delay(100);
+  GPIO_TogglePin(GPIOC, led_pin);
 }
 
 void USART3_Init(void) {
@@ -84,6 +118,15 @@ void USART3_Init(void) {
 
   // Enable USART peripheral
   USART3->CR1 |= USART_CR1_UE;
+
+#if defined(CHECKOFF2) && CHECKOFF2 == 1
+  // Enable RXNE interrupt in USART3
+  USART3->CR1 |= USART_CR1_RXNEIE;
+
+  // Enable USART3_4 interrupt in NVIC
+  NVIC_SetPriority(USART3_4_IRQn, 0);
+  NVIC_EnableIRQ(USART3_4_IRQn);
+#endif
 }
 
 void USART3_TransmitChar(char c) {
@@ -131,8 +174,25 @@ uint32_t GetLedPin(char color) {
 }
 
 void PrintMenu(void) {
-  USART3_TransmitString("\r\n=== LED Control ===\r\n");
+#if defined(CHECKOFF1) && CHECKOFF1 == 1
+  USART3_TransmitString("=== LED Control ===\r\n");
   USART3_TransmitString("Press r/g/b/o to toggle LEDs\r\n\r\n");
+#else
+  USART3_TransmitString("\r\n=== LED Control ===\r\n");
+  USART3_TransmitString("Usage: [led][action]\r\n\n");
+  USART3_TransmitString("led:\r\n"
+                        "  r  Red LED\r\n"
+                        "  o  Orange LED\r\n"
+                        "  b  Blue LED\r\n"
+                        "  g  Green LED\r\n"
+                        "\r\n");
+  USART3_TransmitString("action:\r\n"
+                        "  0  OFF\r\n"
+                        "  1  ON\r\n"
+                        "  2  TOGGLE\r\n"
+                        "\r\n");
+  USART3_TransmitString("CMD$ ");
+#endif
 }
 
 void ProcessCommand(char c) {
@@ -184,6 +244,92 @@ void ProcessCommand(char c) {
   }
 }
 
+void ProcessCommandonIRQ() {
+  if (rx_flag) {
+    rx_flag = 0;
+    char c = rx_data;
+    bool waitForUserInput = true;
+    if (state == 0) {
+      // state 0, waiting for color character
+      uint32_t led_pin = GetLedPin(c);
+
+      if (led_pin != 0xFF) // valid color
+      {
+        color_cmd = c;
+        state = 1;
+        USART3_TransmitChar(c); // Echo the character
+        waitForUserInput = false;
+      } else {
+        // Invalid color
+        USART3_TransmitString("\r\nError: Invalid color! Use r/g/b/o\r\n");
+      }
+    } else {
+      // stat1 1, waiting for action character (0, 1, or 2)
+      if (c >= '0' && c <= '2') {
+        USART3_TransmitChar(c); // Echo the character
+        ActOnIRQCommand(color_cmd, c);
+        state = 0;
+      } else {
+        // Invalid action
+        USART3_TransmitString("\r\nError: Invalid action! Use 0/1/2\r\n");
+        state = 0;
+      }
+    }
+    if (waitForUserInput) {
+      USART3_TransmitString("\r\nCMD$ ");
+    }
+  }
+}
+void ActOnIRQCommand(char color, char action) {
+  uint32_t led_pin = GetLedPin(color);
+
+  const char *color_name;
+  switch (color) {
+  case 'r':
+  case 'R':
+    color_name = "Red";
+    break;
+  case 'g':
+  case 'G':
+    color_name = "Green";
+    break;
+  case 'b':
+  case 'B':
+    color_name = "Blue";
+    break;
+  case 'o':
+  case 'O':
+    color_name = "Orange";
+    break;
+  default:
+    return;
+  }
+
+  USART3_TransmitString("\r\n");
+  USART3_TransmitString(color_name);
+
+  switch (action) {
+  case '0':
+    GPIO_WritePin(GPIOC, led_pin, GPIO_PIN_RESET);
+    USART3_TransmitString(" LED Off\r\n");
+    break;
+  case '1':
+    GPIO_WritePin(GPIOC, led_pin, GPIO_PIN_SET);
+    USART3_TransmitString(" LED On\r\n");
+    break;
+  case '2':
+    GPIO_TogglePin(GPIOC, led_pin);
+    USART3_TransmitString(" LED Toggeled\r\n");
+    break;
+  }
+}
+void USART3_4_IRQHandler(void) {
+  // Check if RXNE (Receive Not Empty) caused the interrupt
+  if (USART3->ISR & USART_ISR_RXNE) {
+    rx_data = USART3->RDR; // Reading RDR automatically clears RXNE
+    rx_flag = 1;
+  }
+}
 /**
  * @brief System Clock Configuration
  * @retval None
