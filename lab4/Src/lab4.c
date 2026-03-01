@@ -15,7 +15,7 @@
 #define USART3_PORT GPIOC
 #define USART3_AF 1U // Alternate Function 1 for USART3
 
-#define CHECKOFF1 1
+#define CHECKOFF1 0
 #if defined(CHECKOFF1) && CHECKOFF1 == 0
 #define CHECKOFF2 1
 #endif
@@ -152,7 +152,9 @@ void PollUART(void) {
 void USART3_TransmitChar(char c) {
   // Wait until TXE (Transmit Data Register Empty) flag is set
   while (!(USART3->ISR & USART_ISR_TXE)) {
+#if !defined(CHECKOFF2) || CHECKOFF2 == 0
     PollUART(); // Poll for incoming data while waiting to transmit
+#endif
   }
 
   // Write character to transmit data register
@@ -273,32 +275,32 @@ void ProcessCommandonIRQ() {
     rx_tail = (rx_tail + 1) % RX_BUFFER_SIZE;
 
     bool waitForUserInput = true;
-    if (state == 0) {
+        if (state == 0) {
       // state 0, waiting for color character
       uint32_t led_pin = GetLedPin(c);
 
       if (led_pin != 0xFF) // valid color
       {
         color_cmd = c;
-        state = 1;
+            state = 1;
         USART3_TransmitChar(c); // Echo the character
         waitForUserInput = false;
-      } else {
+          } else {
         // Invalid color
         USART3_TransmitString("\r\nError: Invalid color! Use r/g/b/o\r\n");
-      }
-    } else {
+          }
+        } else {
       // stat1 1, waiting for action character (0, 1, or 2)
       if (c >= '0' && c <= '2') {
         USART3_TransmitChar(c); // Echo the character
         ActOnIRQCommand(color_cmd, c);
-        state = 0;
-      } else {
+            state = 0;
+          } else {
         // Invalid action
         USART3_TransmitString("\r\nError: Invalid action! Use 0/1/2\r\n");
-        state = 0;
-      }
-    }
+            state = 0;
+          }
+        }
     if (waitForUserInput) {
       USART3_TransmitString("\r\nCMD$ ");
     }

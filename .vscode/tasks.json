@@ -101,7 +101,7 @@
       }
     },
     {
-      "label": "4. Flash Lab 3",
+      "label": "5. Flash Lab 3",
       "type": "shell",
       "command": "cmake",
       "args": [
@@ -120,7 +120,7 @@
       }
     },
     {
-      "label": "4. Flash Lab 4",
+      "label": "6. Flash Lab 4",
       "type": "shell",
       "command": "cmake",
       "args": [
