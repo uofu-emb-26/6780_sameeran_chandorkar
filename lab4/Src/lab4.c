@@ -15,7 +15,7 @@
 #define USART3_PORT GPIOC
 #define USART3_AF 1U // Alternate Function 1 for USART3
 
-#define CHECKOFF1 0
+#define CHECKOFF1 1
 #if defined(CHECKOFF1) && CHECKOFF1 == 0
 #define CHECKOFF2 1
 #endif
@@ -31,14 +31,17 @@ uint32_t GetLedPin(char color);
 void PrintMenu(void);
 void ProcessCommand(char c);
 static void flash_leds(uint32_t led_pin);
+void PollUART(void);
 
 void ProcessCommandonIRQ();
 static void ActOnIRQCommand(char color_cmd, char action_cmd);
 
 /***************************************** global variables */
 
-volatile uint8_t rx_data = 0;
-volatile uint8_t rx_flag = 0;
+#define RX_BUFFER_SIZE 32
+volatile uint8_t rx_buffer[RX_BUFFER_SIZE];
+volatile uint8_t rx_head = 0;
+volatile uint8_t rx_tail = 0;
 uint8_t state = 0; // 0 = waiting for color, 1 = waiting for action
 char color_cmd = 0;
 
@@ -129,10 +132,28 @@ void USART3_Init(void) {
 #endif
 }
 
+void PollUART(void) {
+  // Check for Overrun Error and clear it to prevent freezing
+  if (USART3->ISR & USART_ISR_ORE) {
+    USART3->ICR |= USART_ICR_ORECF;
+  }
+
+  // Check if RXNE (Receive Not Empty) is set
+  if (USART3->ISR & USART_ISR_RXNE) {
+    uint8_t data = (uint8_t)(USART3->RDR);
+    uint8_t next_head = (rx_head + 1) % RX_BUFFER_SIZE;
+    if (next_head != rx_tail) {
+      rx_buffer[rx_head] = data;
+      rx_head = next_head;
+    }
+  }
+}
+
 void USART3_TransmitChar(char c) {
   // Wait until TXE (Transmit Data Register Empty) flag is set
-  while (!(USART3->ISR & USART_ISR_TXE))
-    ;
+  while (!(USART3->ISR & USART_ISR_TXE)) {
+    PollUART(); // Poll for incoming data while waiting to transmit
+  }
 
   // Write character to transmit data register
   USART3->TDR = c;
@@ -146,12 +167,14 @@ void USART3_TransmitString(const char *str) {
 }
 
 char USART3_ReceiveChar(void) {
-  // Wait until RXNE (Receive Data Register Not Empty) flag is set
-  while (!(USART3->ISR & USART_ISR_RXNE))
-    ;
+  // Wait until data is available in the buffer
+  while (rx_head == rx_tail) {
+    PollUART();
+  }
 
-  // Read and return received character (reading RDR clears RXNE)
-  return (char)(USART3->RDR);
+  char c = (char)rx_buffer[rx_tail];
+  rx_tail = (rx_tail + 1) % RX_BUFFER_SIZE;
+  return c;
 }
 
 uint32_t GetLedPin(char color) {
@@ -245,9 +268,10 @@ void ProcessCommand(char c) {
 }
 
 void ProcessCommandonIRQ() {
-  if (rx_flag) {
-    rx_flag = 0;
-    char c = rx_data;
+  while (rx_head != rx_tail) {
+    char c = (char)rx_buffer[rx_tail];
+    rx_tail = (rx_tail + 1) % RX_BUFFER_SIZE;
+
     bool waitForUserInput = true;
     if (state == 0) {
       // state 0, waiting for color character
@@ -324,10 +348,20 @@ void ActOnIRQCommand(char color, char action) {
   }
 }
 void USART3_4_IRQHandler(void) {
+  // Check for Overrun Error and clear it to prevent infinite loop
+  if (USART3->ISR & USART_ISR_ORE) {
+    USART3->ICR |= USART_ICR_ORECF;
+  }
+
   // Check if RXNE (Receive Not Empty) caused the interrupt
   if (USART3->ISR & USART_ISR_RXNE) {
-    rx_data = USART3->RDR; // Reading RDR automatically clears RXNE
-    rx_flag = 1;
+    uint8_t data =
+        (uint8_t)(USART3->RDR); // Reading RDR automatically clears RXNE
+    uint8_t next_head = (rx_head + 1) % RX_BUFFER_SIZE;
+    if (next_head != rx_tail) {
+      rx_buffer[rx_head] = data;
+      rx_head = next_head;
+    }
   }
 }
 /**
