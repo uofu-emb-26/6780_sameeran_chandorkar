@@ -55,16 +55,14 @@ int main(void) {
     I2C_ReadReg(GYRO_ADDR, WHO_AM_I_REG, &whoami, 1);
 
     if (whoami == WHO_AM_I_VAL) {
-#if defined(CHECKOFF_1) && CHECKOFF_1 == 1
       // Blink all LEDs briefly to signal success
       if (!all_leds_on) {
         LED_SetAll(1, 1, 1, 1);
-        HAL_Delay(500);
+        HAL_Delay(100);
         LED_SetAll(0, 0, 0, 0);
-        HAL_Delay(500);
+        HAL_Delay(100);
         all_leds_on = 1;
       }
-#endif
 
 #if defined(CHECKOFF_2) && CHECKOFF_2 == 1
       static uint8_t raw[2];
@@ -101,7 +99,7 @@ int main(void) {
         all_leds_on = 0;
       }
       GPIO_TogglePin(GPIOC, LED_RED_PIN);
-      HAL_Delay(200);
+      HAL_Delay(100);
     }
   }
   return -1;
