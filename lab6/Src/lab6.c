@@ -1,7 +1,30 @@
 #include "main.h"
 #include "stm32f0xx_hal.h"
+#include "hal_gpio.h"
+
+#define LED_RED_PIN 6
+#define LED_BLUE_PIN 7
+#define LED_ORANGE_PIN 8
+#define LED_GREEN_PIN 9
+
+#define ANALOG_IN_0 0
+#define ANALOG_OUT_4 4
+
+#define THRESH_LED0 64u
+#define THRESH_LED1 128u
+#define THRESH_LED2 192u
+#define THRESH_LED3 224u
 
 void SystemClock_Config(void);
+static void LED_Init(void);
+static void ADC_Init(void);
+static void DAC_Init(void);
+
+const uint8_t SINE_TABLE[32] = {
+    127,151,175,197,216,232,244,251,254,251,244,
+    232,216,197,175,151,127,102,78,56,37,21,9,2,0,2,9,21,37,56,78,102
+};
+   
 
 /**
   * @brief  The application entry point.
@@ -14,11 +37,89 @@ int main(void)
   /* Configure the system clock */
   SystemClock_Config();
 
+  LED_Init();
+  ADC_Init();
+  DAC_Init();
+ 
+  uint32_t sine_index = 0;
+ 
   while (1)
   {
+    // 6.1 checkoff
+    uint32_t adc_value = ADC1->DR;   /* 8-bit result: 0–255 */
+
+    GPIO_WritePin(GPIOC, LED_RED_PIN,
+                  (adc_value > THRESH_LED0) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    GPIO_WritePin(GPIOC, LED_BLUE_PIN,
+            (adc_value > THRESH_LED2) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    GPIO_WritePin(GPIOC, LED_ORANGE_PIN,
+            (adc_value > THRESH_LED1) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    GPIO_WritePin(GPIOC, LED_GREEN_PIN,
+            (adc_value > THRESH_LED3) ? GPIO_PIN_SET : GPIO_PIN_RESET);
  
+    // 6.2 checkoff
+    DAC->DHR8R1 = SINE_TABLE[sine_index];
+    sine_index = (sine_index + 1) & 0x1F; /* Optimized modulo 32 using bitwise AND */
+ 
+    HAL_Delay(1);   /* 1 ms between samples */
   }
   return -1;
+}
+
+static void LED_Init(void)
+{
+    GPIO_EnableClock(GPIOC);
+    GPIO_Init(GPIOC, LED_RED_PIN, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW, GPIO_NOPULL);
+    GPIO_Init(GPIOC, LED_BLUE_PIN, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW, GPIO_NOPULL);
+    GPIO_Init(GPIOC, LED_ORANGE_PIN, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW, GPIO_NOPULL);
+    GPIO_Init(GPIOC, LED_GREEN_PIN, GPIO_MODE_OUTPUT_PP, GPIO_SPEED_FREQ_LOW, GPIO_NOPULL);
+}
+
+static void ADC_Init(void)
+{
+    // Configure PC0 as analog input
+    GPIO_EnableClock(GPIOC);
+    GPIO_Init(GPIOC, ANALOG_IN_0, GPIO_MODE_ANALOG, GPIO_SPEED_FREQ_LOW, GPIO_NOPULL);
+ 
+    // Enable ADC1 peripheral clock
+    RCC->APB2ENR |=  RCC_APB2ENR_ADC1EN;
+ 
+    // Configure ADC:
+    ADC1->CFGR1 = ADC_CFGR1_RES_1   /* bits [4:3] = 10 = 8 bit */
+                | ADC_CFGR1_CONT;    /* bit 13 = continuous mode  */
+ 
+    // Select channel 10 (PC0 = ADC_IN10)
+    ADC1->CHSELR = ADC_CHSELR_CHSEL10;
+ 
+    // Calibration 
+    if (ADC1->CR & ADC_CR_ADEN)
+    {
+        ADC1->CR |= ADC_CR_ADDIS;
+        while (ADC1->CR & ADC_CR_ADEN);   /* wait until disabled */
+    }
+ 
+    ADC1->CR |= ADC_CR_ADCAL;             /* trigger calibration */
+    while (ADC1->CR & ADC_CR_ADCAL); 
+ 
+    // Enable ADC
+    ADC1->CR |= ADC_CR_ADEN;
+    while (!(ADC1->ISR & ADC_ISR_ADRDY)); /* wait for ready flag */
+ 
+    //Start continuous conversions
+    ADC1->CR |= ADC_CR_ADSTART;
+}
+
+static void DAC_Init(void)
+{
+    // Configure PA4 as analog output
+    GPIO_EnableClock(GPIOA);
+    GPIO_Init(GPIOA, ANALOG_OUT_4, GPIO_MODE_ANALOG, GPIO_SPEED_FREQ_LOW, GPIO_NOPULL);
+ 
+    // Enable DAC peripheral clock
+    RCC->APB1ENR |= RCC_APB1ENR_DACEN;
+ 
+    // Enable DAC channel 1 with no hardware trigger
+    DAC->CR = DAC_CR_EN1;
 }
 
 /**
