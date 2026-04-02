@@ -169,6 +169,25 @@
       ],
       "group": {
         "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": "$gcc",
+      "presentation": {
+        "focus": true
+      }
+    },
+    {
+      "label": "9. Flash Lab 7",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "build",
+        "--target",
+        "flash_lab7"
+      ],
+      "group": {
+        "kind": "build",
         "isDefault": true
       },
       "problemMatcher": "$gcc",
